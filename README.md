@@ -1,7 +1,27 @@
-# MES 智能客服（MVP 骨架）
+# MES 智能客服（mes-ai-cs · 仓库名 `aikefu`）
 
-工厂内部 MES / 产线问答智能客服。后端 FastAPI 调 aihub 大模型网关（GLM/DeepSeek），
-内置轻量 RAG 检索（无需先装向量库），前端为单文件网页聊天 Widget，另附 customtkinter 桌面调试端。
+> 工厂内部 MES / 产线问答智能客服。基于 FastAPI + 轻量 RAG，在线走公司 aihub 大模型网关，离线可跑本地模型；前端为单文件网页聊天 Widget，可嵌入 UTGMES 等内部系统。
+
+## 项目简介
+
+为产线工程师打造的 **MES 领域智能问答助手**。用户输入 MES / 产线问题后，后端先做轻量知识库检索（字符 bigram 召回，零依赖、免向量库），再把检索片段连同问题一起发给大模型生成答案。前端是单文件网页聊天 Widget，已集成进 UTGMES（右下角客服入口、`#csInput` 关闭强制大写），另附 customtkinter 桌面调试端，方便无前端环境下联调。
+
+**特性**
+- 🚀 **零依赖 RAG** —— 字符 bigram 重叠检索，小知识库开箱即用，无需先装向量库
+- 🔌 **双通道模型** —— 在线走公司 aihub 网关（GLM / DeepSeek），离线走本地模型（Apple mlx / Windows Ollama）
+- 💬 **网页 Widget** —— 单文件内嵌、无 CDN / 无外部字体，可直接集成进内部系统
+- 🖥️ **桌面调试端** —— customtkinter 一键联调，省去起前端
+- 📦 **内网就绪** —— NSSM 服务化 + 离线 wheels，无外网环境也能跑
+
+**技术栈**
+
+| 层 | 技术 |
+|---|---|
+| 后端 | FastAPI + uvicorn |
+| 检索 | 字符 bigram RAG（可选升级 chromadb / bge 向量检索）|
+| 模型 | aihub OpenAI 协议网关 / 本地 mlx · Ollama |
+| 前端 | 原生 JS 单文件 Widget（无 CDN / 无外部字体）|
+| 桌面 | customtkinter |
 
 ## 目录结构
 
