@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MES 智能客服 Widget</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { font-family: 'Space Grotesk', system-ui, sans-serif; }
+  .glass { background: rgba(17, 24, 39, 0.72); backdrop-filter: blur(12px); }
+  .bubble-user { background: linear-gradient(135deg, #1d9e75, #0f6e56); }
+  .bubble-bot { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); }
+  .scroll::-webkit-scrollbar { width: 6px; }
+  .scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  [x-cloak] { display: none !important; }
+</style>
+</head>
+<body class="bg-slate-100">
+
+<!-- 嵌入方式：把下面这个 <div x-data="csWidget()"> 整段拷进你的页面即可 -->
+<div x-data="csWidget()" x-init="init()" class="fixed bottom-5 right-5 z-50 text-slate-100">
+
+  <!-- 浮动按钮 -->
+  <button x-show="!open" @click="open = true"
+    class="w-14 h-14 rounded-full bg-gradient-to-br from-teal-500 to-emerald-700 shadow-lg flex items-center justify-center hover:scale-105 transition"
+    title="MES 智能客服">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  </button>
+
+  <!-- 聊天面板 -->
+  <div x-show="open" x-cloak x-transition
+    class="glass w-80 sm:w-96 h-[28rem] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-white/10">
+
+    <!-- 头部 -->
+    <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-800 to-slate-900 border-b border-white/10">
+      <div class="flex items-center gap-2">
+        <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+        <span class="font-medium">MES 智能客服</span>
+      </div>
+      <button @click="open = false" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <!-- 消息区 -->
+    <div class="flex-1 overflow-y-auto scroll px-3 py-3 space-y-3" id="cs-msgs">
+      <template x-for="m in messages" :key="m.id">
+        <div :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+          <div :class="m.role === 'user' ? 'bubble-user text-white' : 'bubble-bot text-slate-100'"
+            class="max-w-[80%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed" x-text="m.text"></div>
+        </div>
+      </template>
+      <div x-show="loading" class="flex justify-start">
+        <div class="bubble-bot px-3 py-2 rounded-2xl text-sm text-slate-400">正在输入…</div>
+      </div>
+    </div>
+
+    <!-- 输入区 -->
+    <div class="p-3 border-t border-white/10 flex gap-2">
+      <input x-model="draft" @keydown.enter="send()" type="text" placeholder="输入 MES / 产线问题…"
+        class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-400" />
+      <button @click="send()" :disabled="loading"
+        class="px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-sm font-medium">发送</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function csWidget() {
+  return {
+    open: false,
+    draft: '',
+    loading: false,
+    sessionId: 'web-' + Math.random().toString(36).slice(2),
+    messages: [{ id: 0, role: 'bot', text: '你好，我是 MES 产线智能客服。可以问我追溯、工单、Tray/Ink 绑定等问题。' }],
+    init() {},
+    async send() {
+      const text = this.draft.trim();
+      if (!text || this.loading) return;
+      this.messages.push({ id: Date.now(), role: 'user', text });
+      this.draft = '';
+      this.loading = true;
+      this.scroll();
+      try {
+        const r = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: this.sessionId, message: text }),
+        });
+        const data = await r.json();
+        this.messages.push({ id: Date.now() + 1, role: 'bot', text: data.reply || '（无回复）' });
+      } catch (e) {
+        this.messages.push({ id: Date.now() + 1, role: 'bot', text: '连接后端失败：' + e });
+      } finally {
+        this.loading = false;
+        this.scroll();
+      }
+    },
+    scroll() {
+      setTimeout(() => {
+        const el = document.getElementById('cs-msgs');
+        if (el) el.scrollTop = el.scrollHeight;
+      }, 50);
+    },
+  };
+}
+// 后端地址：用 127.0.0.1 而非 localhost，规避浏览器把 localhost 解析为 IPv6(::1) 而后端仅监听 IPv4 导致 fetch 失败
+// 内网部署其它机器时改成 http://<内网IP>:8000/api/chat；同域则直接用 '/api/chat'
+const API_URL = 'http://127.0.0.1:8000/api/chat';
+</script>
+</body>
+</html>

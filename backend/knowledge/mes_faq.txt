@@ -1,0 +1,33 @@
+# MES 三级绑定（TrayID / InkID / PEcode）
+
+Tray 盘（TrayID）、油墨码（InkID）、产品码（PEcode）构成三级绑定关系，用于 UTG/AOI 产线的双向追溯。
+
+绑定规则：一个 Tray 盘可承载多片玻璃；每片玻璃有唯一 InkID；最终成品绑定 PEcode。三者通过 sn_trace 追溯链串联，支持正向（Tray→PEcode）与反向（PEcode→Tray）查询。
+
+查询接口：GET /UTG/AutoRack/GetTray4 返回 PhoneParts，其中 raw_json 字段为字符串或对象，aoi_or_manual 为关键分类字段，标记该记录来自 AOI 设备还是人工录入。
+
+解绑规则：scrap（报废）记录 test_result=scrap 优先级最高，仅红色 scrap 状态可解绑；QC 前缀（如 QC0001-01）与 NG 前缀（如 NG0001-01）需分别校验，维护模式下只解绑对应前缀。解绑接口：/UTG/AutoRack/GetTray4?unbind=true&trayPosition=...，返回 state:0 / state:1。
+
+# sn_trace 追溯链与 TraceMac 检查
+
+sn_trace 是扫码器→PLC→MES 的追溯数据链，覆盖 AUTO-RACK1→STRIPPING→Fine Slimming→AUTO-RACK2→AUTO-RACK3→Re Polish→AUTO-RACK4 等工位。
+
+TraceMac 黑屏/不良检查接口：http://10.80.66.70:8011/TraceMac/TraceMacFCheckApi，备用端点 http://10.105.242.4/HD_TraceMac_TraceMacFCheckApi。
+
+Blacklist 批量加入接口：/UTG/Blacklist/BatchAdd。ASP.NET MVC 5.2 / .NET 4.0 需显式 [FromBody] 绑定 JSON，否则会抛 NullReferenceException。
+
+# 数据库与部署
+
+MES 数据库统一内网 MySQL（10.110.26.110:8090，库名 mes，root/123456），后端 mysql2 / pymysql 双栈。
+
+Web 服务最终部署至内网 Windows 服务器，用 NSSM 注册 Node.js + Express 服务 'MESApi'（端口 3000）；无外网环境用 pkg 打包 exe 适配。
+
+时区注意：MES 数据写入存在 8 小时时区偏移风险，展示与对账时需规避。
+
+# 常见问题
+
+问：Tray 盘查不到某片玻璃？先确认 aoi_or_manual 分类，再用 GetTray4 按 trayPosition 定位；若为 scrap 红色状态，需走解绑流程。
+
+问：AOI 与手动录入数据不一致？检查 raw_json 解析，手动录入可能缺字段，以 AOI 设备数据为优先核对源。
+
+问：TraceMac 检查失败？先用主端点，超时再切备用端点；若持续失败，排查扫码器到 PLC 的 Modbus TCP 链路。
